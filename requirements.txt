@@ -1,0 +1,8 @@
+selenium
+speechrecognition
+pyttsx3
+webdriver-manager
+openai
+python-dotenv
+requests
+pdfplumber
