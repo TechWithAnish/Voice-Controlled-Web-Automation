@@ -1,7 +1,6 @@
-__pycache__/
+.env
+pycache/
 *.pyc
 venv/
-.env
 *.whl
-Openai/
-*.pdf
+*.log

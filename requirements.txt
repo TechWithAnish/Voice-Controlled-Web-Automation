@@ -1,8 +1,9 @@
-selenium
-speechrecognition
-pyttsx3
-webdriver-manager
-openai
+openai>=1.0.0
 python-dotenv
+fuzzywuzzy
+python-Levenshtein
 requests
-pdfplumber
+pyttsx3
+speechrecognition
+selenium
+webdriver-manager
