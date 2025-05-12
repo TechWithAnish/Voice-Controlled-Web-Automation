@@ -1,0 +1,6 @@
+selenium
+pyttsx3
+speech_recognition
+webdriver-manager
+geckodriver-autoinstaller  # For Firefox support
+chromedriver-autoinstaller  # For Chrome support
