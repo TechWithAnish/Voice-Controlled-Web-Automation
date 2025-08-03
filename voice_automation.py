@@ -1,3 +1,4 @@
+# Standard library imports
 import time
 import re
 import os
@@ -5,270 +6,501 @@ import datetime
 import webbrowser
 import requests
 import json
+import sys
+import logging
+from typing import Dict, List, Optional, Tuple
+
+# Third-party package imports
 from dotenv import load_dotenv
 import pyttsx3
 import speech_recognition as sr
 from fuzzywuzzy import fuzz
-from openai import OpenAI
+
+# Selenium imports for browser automation
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-
-# Load environment variables
-load_dotenv()
-deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
-
-# Initialize DeepSeek client
-client = OpenAI(
-    api_key=deepseek_api_key,
-    base_url="https://api.deepseek.com/v1"
+from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import (
+    TimeoutException, 
+    NoSuchElementException, 
+    WebDriverException
 )
 
-# Initialize text-to-speech
-engine = pyttsx3.init()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('voice_automation.log'),
+        logging.StreamHandler()
+    ]
+)
 
-# Initialize ChromeDriver
-service = Service(ChromeDriverManager().install())
-options = webdriver.ChromeOptions()
-options.add_argument('--ignore-certificate-errors')
-driver = webdriver.Chrome(service=service, options=options)
+class VoiceAutomationAssistant:
+    """Main class for voice-controlled web automation assistant."""
+    
+    def __init__(self):
+        """Initialize the voice automation assistant."""
+        self.driver = None
+        self.engine = None
+        self.recognizer = None
+        self.setup_components()
+        
+        # Predefined websites for quick access
+        self.quick_sites = {
+            "youtube": "https://www.youtube.com",
+            "wikipedia": "https://www.wikipedia.com", 
+            "google": "https://www.google.com",
+            "netflix": "https://netflix.com",
+            "instagram": "https://instagram.com",
+            "amazon": "https://www.amazon.com",
+            "spotify": "https://www.spotify.com",
+            "facebook": "https://www.facebook.com",
+            "twitter": "https://www.twitter.com",
+            "github": "https://www.github.com",
+            "stackoverflow": "https://stackoverflow.com",
+            "reddit": "https://www.reddit.com"
+        }
+        
+        # Command patterns for better matching
+        self.command_patterns = {
+            'open': [
+                r'open\s+(.+)',
+                r'go\s+to\s+(.+)',
+                r'navigate\s+to\s+(.+)',
+                r'visit\s+(.+)'
+            ],
+            'search': [
+                r'search\s+for\s+(.+)',
+                r'google\s+(.+)',
+                r'look\s+up\s+(.+)',
+                r'find\s+(.+)'
+            ],
+            'search_amazon': [
+                r'search\s+amazon\s+(.+)',
+                r'amazon\s+(.+)',
+                r'buy\s+(.+)'
+            ],
+            'scroll_down': [
+                r'scroll\s+down(?:\s+(\d+))?',
+                r'page\s+down(?:\s+(\d+))?'
+            ],
+            'scroll_up': [
+                r'scroll\s+up(?:\s+(\d+))?',
+                r'page\s+up(?:\s+(\d+))?'
+            ],
+            'click': [
+                r'click\s+on\s+(.+)',
+                r'click\s+(.+)',
+                r'press\s+(.+)'
+            ]
+        }
 
-# Chat history for DeepSeek
-chat_history = [
-    {
-        "role": "system",
-        "content": "You are a voice-controlled assistant that can perform web automation tasks (e.g., open websites, search, scroll, click links), system tasks (e.g., tell time, fetch weather), and generate text (e.g., cover letters, emails). For each user input, determine if it's a command or a general query. If it's a command, return a JSON object with 'action' and 'value' (e.g., {'action': 'open', 'value': 'google.com'}). If it's a query, return a natural language response. Maintain context for follow-up questions. Current time: " + datetime.datetime.now().strftime("%H:%M:%S")
-    }
-]
-
-def speak(response):
-    """Speak the given response using pyttsx3."""
-    engine.say(response)
-    engine.runAndWait()
-
-def get_voice_command():
-    """Capture and return voice input as lowercase text."""
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        print("Listening...")
-        recognizer.pause_threshold = 1
-        recognizer.adjust_for_ambient_noise(source, duration=1)
+    def setup_components(self):
+        """Initialize all required components."""
         try:
-            audio = recognizer.listen(source, timeout=10, phrase_time_limit=10)
-            print("Recognizing...")
-            query = recognizer.recognize_google(audio, language="en-in")
-            print(f"User: {query}")
-            return query.lower()
+            # Initialize text-to-speech engine
+            self.engine = pyttsx3.init()
+            self.configure_tts()
+            
+            # Initialize speech recognizer
+            self.recognizer = sr.Recognizer()
+            
+            # Initialize browser
+            self.setup_browser()
+            
+            logging.info("All components initialized successfully")
+            
+        except Exception as e:
+            logging.error(f"Error setting up components: {e}")
+            self.speak("There was a problem initializing the assistant.")
+            sys.exit(1)
+
+    def configure_tts(self):
+        """Configure text-to-speech settings."""
+        try:
+            voices = self.engine.getProperty('voices')
+            if voices:
+                # Try to set a female voice if available
+                for voice in voices:
+                    if 'female' in voice.name.lower() or 'zira' in voice.name.lower():
+                        self.engine.setProperty('voice', voice.id)
+                        break
+            
+            # Set speech rate and volume
+            self.engine.setProperty('rate', 180)  # Speed of speech
+            self.engine.setProperty('volume', 0.9)  # Volume level (0.0 to 1.0)
+            
+        except Exception as e:
+            logging.warning(f"Could not configure TTS settings: {e}")
+
+    def setup_browser(self):
+        """Initialize and configure the Chrome browser."""
+        try:
+            service = Service(ChromeDriverManager().install())
+            options = webdriver.ChromeOptions()
+            
+            # Chrome options for better performance and compatibility
+            options.add_argument('--ignore-certificate-errors')
+            options.add_argument('--ignore-ssl-errors')
+            options.add_argument('--disable-extensions')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_experimental_option('excludeSwitches', ['enable-logging'])
+            options.add_experimental_option('useAutomationExtension', False)
+            
+            self.driver = webdriver.Chrome(service=service, options=options)
+            self.driver.maximize_window()
+            
+            logging.info("Browser initialized successfully")
+            
+        except Exception as e:
+            logging.error(f"Error setting up browser: {e}")
+            raise
+
+    def speak(self, text: str):
+        """Speak the given text using pyttsx3."""
+        try:
+            print(f"Assistant: {text}")
+            self.engine.say(text)
+            self.engine.runAndWait()
+        except Exception as e:
+            logging.error(f"TTS error: {e}")
+            print(f"Assistant: {text}")  # Fallback to text output
+
+    def get_voice_command(self) -> str:
+        """Capture and return voice input as lowercase text."""
+        try:
+            with sr.Microphone() as source:
+                print("🎤 Listening...")
+                self.recognizer.pause_threshold = 1
+                self.recognizer.adjust_for_ambient_noise(source, duration=1)
+                
+                # Listen for audio input
+                audio = self.recognizer.listen(source, timeout=10, phrase_time_limit=10)
+                print("🔄 Recognizing...")
+                
+                # Recognize speech using Google API
+                query = self.recognizer.recognize_google(audio, language="en-US")
+                print(f"👤 User: {query}")
+                return query.lower().strip()
+                
         except sr.WaitTimeoutError:
-            print("No speech detected within timeout.")
+            print("⏰ No speech detected within timeout.")
             return ""
         except sr.UnknownValueError:
-            speak("Sorry, I didn't understand that.")
+            self.speak("Sorry, I didn't understand that. Please try again.")
             return ""
         except sr.RequestError as e:
-            speak("There is a problem with speech recognition.")
-            print(f"Speech recognition error: {e}")
+            self.speak("There is a problem with speech recognition.")
+            logging.error(f"Speech recognition error: {e}")
             return ""
         except Exception as e:
-            speak("There is a problem.")
-            print(f"Error: {e}")
+            self.speak("There is a problem.")
+            logging.error(f"Voice command error: {e}")
             return ""
 
-def ai_response(prompt):
-    """Generate a response using DeepSeek."""
-    global chat_history
-    try:
-        chat_history.append({"role": "user", "content": prompt})
-        response = client.chat.completions.create(
-            model="deepseek-chat",  # Updated model name
-            messages=chat_history,
-            temperature=0.7,
-            max_tokens=256,
-            top_p=1,
-            frequency_penalty=0,
-            presence_penalty=0
-        )
-        answer = response.choices[0].message.content.strip()
-        chat_history.append({"role": "assistant", "content": answer})
-        # Keep chat history manageable
-        if len(chat_history) > 20:
-            chat_history = chat_history[:1] + chat_history[-19:]
-        return answer
-    except Exception as e:
-        print(f"DeepSeek error: {e}")
-        speak("There is a problem with the AI service.")
-        return "Sorry, I couldn't generate a response."
+    def normalize_url(self, url: str) -> str:
+        """Normalize and validate URL format."""
+        url = url.strip()
+        
+        # Check if it's a quick site
+        if url in self.quick_sites:
+            return self.quick_sites[url]
+        
+        # Add protocol if missing
+        if not url.startswith(('http://', 'https://')):
+            # Add .com if no domain extension present
+            if '.' not in url:
+                url = f"www.{url}.com"
+            url = f"https://{url}"
+        
+        return url
 
-def process_command(command):
-    """Processes voice commands or natural language queries."""
-    global chat_history
+    def open_website(self, website: str):
+        """Open a website in the browser."""
+        try:
+            url = self.normalize_url(website)
+            self.speak(f"Opening {website}")
+            self.driver.get(url)
+            time.sleep(2)  # Wait for page to load
+            
+        except WebDriverException as e:
+            self.speak(f"There was a problem opening {website}")
+            logging.error(f"Error opening website {website}: {e}")
 
-    if not command:
-        return
+    def search_google(self, query: str):
+        """Perform a Google search."""
+        try:
+            self.speak(f"Searching Google for {query}")
+            search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
+            self.driver.get(search_url)
+            time.sleep(2)
+            
+        except Exception as e:
+            self.speak("There was a problem with the Google search")
+            logging.error(f"Google search error: {e}")
 
-    # Exit commands
-    if any(word in command for word in ["exit", "close", "quit", "bye"]):
-        speak("Closing the browser. Goodbye!")
-        driver.quit()
-        service.stop()
-        exit()
+    def search_amazon(self, query: str):
+        """Perform an Amazon search."""
+        try:
+            self.speak(f"Searching Amazon for {query}")
+            search_url = f"https://www.amazon.com/s?k={query.replace(' ', '+')}"
+            self.driver.get(search_url)
+            time.sleep(2)
+            
+        except Exception as e:
+            self.speak("There was a problem with the Amazon search")
+            logging.error(f"Amazon search error: {e}")
 
-    # Fuzzy match commands
-    commands = [
-        ("open", lambda cmd: cmd.startswith("open") or cmd.startswith("go to")),
-        ("search for", lambda cmd: "search for" in cmd),
-        ("search amazon", lambda cmd: "search amazon" in cmd),
-        ("scroll down", lambda cmd: "scroll down" in cmd),
-        ("scroll up", lambda cmd: "scroll up" in cmd),
-        ("scroll to bottom", lambda cmd: "scroll to bottom" in cmd),
-        ("click on", lambda cmd: "click on" in cmd),
-        ("go back", lambda cmd: "go back" in cmd),
-        ("go forward", lambda cmd: "go forward" in cmd),
-        ("refresh", lambda cmd: "refresh" in cmd or "reload" in cmd),
-        ("the time", lambda cmd: "the time" in cmd or "tell me time" in cmd),
-        ("weather", lambda cmd: "weather" in cmd),
-        ("generate", lambda cmd: fuzz.partial_ratio("generate", cmd) > 80 or fuzz.partial_ratio("generator", cmd) > 80),
-        ("reset chat", lambda cmd: "reset chat" in cmd)
-    ]
+    def scroll_page(self, direction: str, pixels: int = 300):
+        """Scroll the page in the specified direction."""
+        try:
+            if direction == "down":
+                self.speak(f"Scrolling down by {pixels} pixels")
+                self.driver.execute_script(f"window.scrollBy(0, {pixels});")
+            elif direction == "up":
+                self.speak(f"Scrolling up by {pixels} pixels")
+                self.driver.execute_script(f"window.scrollBy(0, -{pixels});")
+            elif direction == "bottom":
+                self.speak("Scrolling to the bottom of the page")
+                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            elif direction == "top":
+                self.speak("Scrolling to the top of the page")
+                self.driver.execute_script("window.scrollTo(0, 0);")
+                
+        except Exception as e:
+            self.speak("There was a problem scrolling")
+            logging.error(f"Scroll error: {e}")
 
-    for cmd_name, cmd_check in commands:
-        if cmd_check(command):
-            if cmd_name == "open":
-                website = command.replace("open", "").replace("go to", "").strip()
-                if not website.startswith("http"):
-                    if "." not in website:
-                        website = f"www.{website}.com"
-                    website = "https://" + website
-                speak(f"Opening {website}")
-                driver.get(website)
-            elif cmd_name == "search for":
-                search_phrase = command.split("search for", 1)[1].strip()
-                speak(f"Searching Google for {search_phrase}")
-                driver.get(f"https://www.google.com/search?q={search_phrase}")
-            elif cmd_name == "search amazon":
-                search_query = command.split("search amazon", 1)[1].strip()
-                speak(f"Searching Amazon for {search_query}")
-                driver.get(f"https://www.amazon.com/s?k={search_query}")
-            elif cmd_name == "scroll down":
-                match = re.search(r"scroll down (\d+)", command)
-                pixels = int(match.group(1)) if match else 300
-                speak(f"Scrolling down by {pixels} pixels.")
-                driver.execute_script(f"window.scrollBy(0, {pixels});")
-            elif cmd_name == "scroll up":
-                match = re.search(r"scroll up (\d+)", command)
-                pixels = int(match.group(1)) if match else 300
-                speak(f"Scrolling up by {pixels} pixels.")
-                driver.execute_script(f"window.scrollBy(0, {-pixels});")
-            elif cmd_name == "scroll to bottom":
-                speak("Scrolling to the bottom of the page.")
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            elif cmd_name == "click on":
-                element_text = command.split("click on", 1)[1].strip()
+    def click_element(self, element_text: str):
+        """Click on an element containing the specified text."""
+        try:
+            self.speak(f"Looking for element containing '{element_text}'")
+            
+            # Try different strategies to find the element
+            strategies = [
+                (By.PARTIAL_LINK_TEXT, element_text),
+                (By.LINK_TEXT, element_text),
+                (By.XPATH, f"//*[contains(text(), '{element_text}')]"),
+                (By.XPATH, f"//button[contains(text(), '{element_text}')]"),
+                (By.XPATH, f"//input[@value='{element_text}']"),
+                (By.XPATH, f"//*[@title='{element_text}']")
+            ]
+            
+            element = None
+            for by, value in strategies:
                 try:
-                    speak(f"Clicking on element containing '{element_text}'")
-                    element = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.PARTIAL_LINK_TEXT, element_text))
+                    element = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((by, value))
                     )
-                    element.click()
-                except Exception as e:
-                    speak("There is a problem finding the element.")
-                    print(e)
-            elif cmd_name == "go back":
-                speak("Going back.")
-                driver.back()
-            elif cmd_name == "go forward":
-                speak("Going forward.")
-                driver.forward()
-            elif cmd_name == "refresh":
-                speak("Refreshing the page.")
-                driver.refresh()
-            elif cmd_name == "the time":
-                strfTime = datetime.datetime.now().strftime("%H:%M:%S")
-                speak(f"The time is {strfTime}")
-            elif cmd_name == "weather":
-                match = re.search(r"weather in (\w+)", command)
-                city = match.group(1) if match else None
-                if city:
-                    try:
-                        url = f"https://wttr.in/{city}?format=%C+%t"
-                        response = requests.get(url)
-                        if response.status_code == 200:
-                            weather = response.text.strip()
-                            speak(f"The weather in {city} is {weather}.")
-                        else:
-                            speak("There is a problem fetching the weather.")
-                    except Exception as e:
-                        speak("There is a problem fetching the weather.")
-                        print(e)
-                else:
-                    speak("Please specify a city for the weather.")
-            elif cmd_name == "generate":
-                prompt = command.replace("generate", "").replace("generator", "").strip()
-                response = ai_response(f"Generate: {prompt}")
-                speak(response)
-            elif cmd_name == "reset chat":
-                chat_history = [
-                    {
-                        "role": "system",
-                        "content": "You are a voice-controlled assistant that can perform web automation tasks (e.g., open websites, search, scroll, click links), system tasks (e.g., tell time, fetch weather), and generate text (e.g., cover letters, emails). For each user input, determine if it's a command or a general query. If it's a command, return a JSON object with 'action' and 'value' (e.g., {'action': 'open', 'value': 'google.com'}). If it's a query, return a natural language response. Maintain context for follow-up questions. Current time: " + datetime.datetime.now().strftime("%H:%M:%S")
-                    }
-                ]
-                speak("Chat history reset.")
-            return
-
-    # Handle predefined sites
-    sites = [
-        ["youtube", "https://www.youtube.com"],
-        ["wikipedia", "https://www.wikipedia.com"],
-        ["google", "https://www.google.com"],
-        ["netflix", "https://netflix.com"],
-        ["instagram", "https://instagram.com"],
-        ["amazon", "https://www.amazon.in"],
-        ["spotify", "https://www.spotify.com"]
-    ]
-    for site in sites:
-        if f"open {site[0]}" in command:
-            speak(f"Opening {site[0]}.")
-            webbrowser.open(site[1])
-            return
-
-    # Natural language processing for unrecognized commands
-    response = ai_response(command)
-    try:
-        # Check if response is a JSON command
-        cmd = json.loads(response)
-        if isinstance(cmd, dict) and "action" in cmd and "value" in cmd:
-            action, value = cmd["action"], cmd["value"]
-            if action == "open":
-                speak(f"Opening {value}")
-                driver.get(f"https://{value}" if not value.startswith("http") else value)
-            elif action == "search":
-                speak(f"Searching Google for {value}")
-                driver.get(f"https://www.google.com/search?q={value}")
-            elif action == "say":
-                speak(value)
+                    break
+                except TimeoutException:
+                    continue
+            
+            if element:
+                element.click()
+                self.speak(f"Clicked on {element_text}")
             else:
-                speak("There is a problem with the command.")
+                self.speak(f"Could not find element containing '{element_text}'")
+                
+        except Exception as e:
+            self.speak("There was a problem clicking the element")
+            logging.error(f"Click error: {e}")
+
+    def navigate_browser(self, action: str):
+        """Navigate browser (back, forward, refresh)."""
+        try:
+            if action == "back":
+                self.speak("Going back")
+                self.driver.back()
+            elif action == "forward":
+                self.speak("Going forward")
+                self.driver.forward()
+            elif action == "refresh":
+                self.speak("Refreshing the page")
+                self.driver.refresh()
+            time.sleep(1)
+            
+        except Exception as e:
+            self.speak(f"There was a problem with browser navigation")
+            logging.error(f"Navigation error: {e}")
+
+    def get_current_time(self):
+        """Get and speak the current time."""
+        try:
+            current_time = datetime.datetime.now().strftime("%I:%M %p")
+            self.speak(f"The current time is {current_time}")
+            
+        except Exception as e:
+            self.speak("There was a problem getting the time")
+            logging.error(f"Time error: {e}")
+
+    def get_weather(self, city: str):
+        """Get weather information for a specified city."""
+        try:
+            self.speak(f"Getting weather information for {city}")
+            url = f"https://wttr.in/{city}?format=%C+%t"
+            response = requests.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                weather = response.text.strip()
+                self.speak(f"The weather in {city} is {weather}")
+            else:
+                self.speak("Could not fetch weather information")
+                
+        except requests.RequestException as e:
+            self.speak("There was a problem fetching the weather")
+            logging.error(f"Weather error: {e}")
+
+    def match_command_pattern(self, command: str) -> Tuple[str, Optional[str]]:
+        """Match command against predefined patterns."""
+        for cmd_type, patterns in self.command_patterns.items():
+            for pattern in patterns:
+                match = re.search(pattern, command, re.IGNORECASE)
+                if match:
+                    return cmd_type, match.group(1) if match.groups() else None
+        return None, None
+
+    def process_command(self, command: str):
+        """Process voice commands using pattern matching."""
+        if not command:
+            return
+
+        command = command.strip().lower()
+        
+        # Exit commands
+        exit_commands = ["exit", "close", "quit", "bye", "goodbye", "stop"]
+        if any(word in command for word in exit_commands):
+            self.speak("Closing the browser. Goodbye!")
+            self.cleanup()
+            return
+
+        # Time commands
+        if any(phrase in command for phrase in ["time", "what time", "current time"]):
+            self.get_current_time()
+            return
+
+        # Weather commands
+        weather_match = re.search(r"weather\s+(?:in\s+)?(\w+)", command)
+        if weather_match:
+            city = weather_match.group(1)
+            self.get_weather(city)
+            return
+
+        # Browser navigation commands
+        if "go back" in command or "back" in command:
+            self.navigate_browser("back")
+            return
+        elif "go forward" in command or "forward" in command:
+            self.navigate_browser("forward")
+            return
+        elif "refresh" in command or "reload" in command:
+            self.navigate_browser("refresh")
+            return
+
+        # Scroll commands
+        if "scroll to bottom" in command or "bottom" in command:
+            self.scroll_page("bottom")
+            return
+        elif "scroll to top" in command or "top" in command:
+            self.scroll_page("top")
+            return
+
+        # Pattern-based command matching
+        cmd_type, value = self.match_command_pattern(command)
+        
+        if cmd_type == "open" and value:
+            self.open_website(value)
+        elif cmd_type == "search" and value:
+            self.search_google(value)
+        elif cmd_type == "search_amazon" and value:
+            self.search_amazon(value)
+        elif cmd_type == "scroll_down":
+            pixels = int(value) if value and value.isdigit() else 300
+            self.scroll_page("down", pixels)
+        elif cmd_type == "scroll_up":
+            pixels = int(value) if value and value.isdigit() else 300
+            self.scroll_page("up", pixels)
+        elif cmd_type == "click" and value:
+            self.click_element(value)
         else:
-            speak(response)
-    except json.JSONDecodeError:
-        # Response is natural language
-        speak(response)
+            # Fuzzy matching for close commands
+            best_match = None
+            best_score = 0
+            
+            for site in self.quick_sites.keys():
+                if site in command:
+                    self.open_website(site)
+                    return
+            
+            # If no exact match, try fuzzy matching
+            for cmd in ["open google", "search", "scroll down", "go back"]:
+                score = fuzz.partial_ratio(cmd, command)
+                if score > best_score and score > 70:
+                    best_score = score
+                    best_match = cmd
+            
+            if best_match:
+                self.speak(f"Did you mean {best_match}? Please try again with clearer pronunciation.")
+            else:
+                self.speak("I didn't understand that command. Please try again.")
 
-# Greet the user
-speak("Hello, I'm your voice-controlled assistant! How can I help you today?")
-speak("Try saying 'open Google', 'search for cats', 'weather in Noida', 'generate a cover letter', or anything else!")
+    def cleanup(self):
+        """Clean up resources before exit."""
+        try:
+            if self.driver:
+                self.driver.quit()
+            if self.engine:
+                self.engine.stop()
+            logging.info("Cleanup completed successfully")
+        except Exception as e:
+            logging.error(f"Cleanup error: {e}")
+        finally:
+            sys.exit(0)
 
-# Main loop
-while True:
+    def run(self):
+        """Main loop for the voice automation assistant."""
+        # Welcome message
+        welcome_msg = (
+            "Hello! I'm your voice-controlled assistant. "
+            "I can help you browse the web, search Google or Amazon, "
+            "check the weather and time, and much more. "
+            "Try saying 'open Google', 'search for cats', or 'weather in New York'."
+        )
+        self.speak(welcome_msg)
+        
+        # Main command loop
+        while True:
+            try:
+                command = self.get_voice_command()
+                if command:
+                    print(f"🔄 Processing: {command}")
+                    self.process_command(command)
+                    
+            except KeyboardInterrupt:
+                self.speak("Stopping assistant...")
+                break
+            except Exception as e:
+                self.speak("There was a problem. Please try again.")
+                logging.error(f"Main loop error: {e}")
+        
+        self.cleanup()
+
+
+def main():
+    """Main function to start the voice automation assistant."""
     try:
-        command = get_voice_command()
-        if command:
-            print(f"Processing command: {command}")
-            process_command(command)
+        assistant = VoiceAutomationAssistant()
+        assistant.run()
     except Exception as e:
-        print(f"Main loop error: {e}")
-        speak("There is a problem. Please try again.")
+        logging.error(f"Failed to start assistant: {e}")
+        print("Failed to start the assistant. Please check the logs for details.")
+
+
+if __name__ == "__main__":
+    main()
