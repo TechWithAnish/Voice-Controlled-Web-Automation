@@ -1,0 +1,6 @@
+# Development and test dependencies.
+#
+#     pip install -r requirements-dev.txt
+#
+-e .[dev]
+lxml>=5.0          # used by one test to validate generated XPath

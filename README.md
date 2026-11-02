@@ -1,267 +1,287 @@
 # Voice-Controlled Web Automation
 
-A Python-based voice assistant that automates web browsing and performs system tasks using natural speech commands. Control your browser hands-free with voice commands to open websites, search Google/Amazon, navigate pages, check weather, and more.
+Drive a real Chrome browser by speaking. Say *"open youtube"*, *"search for
+python tutorials"*, *"click on sign in"*, *"scroll down 400"* — the assistant
+hears the command, performs it, and tells you what it did.
 
-## ✨ Features
-
-### 🌐 Web Automation
-- **Website Navigation**: Open any website with voice commands
-- **Smart Search**: Search Google or Amazon using natural language
-- **Page Control**: Scroll, click elements, navigate browser history
-- **Quick Sites**: Instant access to popular websites (YouTube, GitHub, etc.)
-
-### 🎯 System Tasks
-- **Time & Weather**: Get current time and weather for any city
-- **Browser Control**: Back, forward, refresh, and window management
-- **Smart Element Detection**: Click on page elements using natural descriptions
-
-### 🗣️ Voice Features
-- **Natural Language Processing**: Understand conversational commands
-- **Fuzzy Matching**: Tolerates mispronunciations and variations
-- **Audio Feedback**: Clear spoken responses for all actions
-- **Error Handling**: Graceful error recovery with helpful messages
-
-## 🚀 Quick Start
-
-### Prerequisites
-- **Python 3.8+**: Required for all functionality
-- **Chrome Browser**: Used for web automation
-- **Microphone**: For voice input (built-in or external)
-- **Internet Connection**: Required for speech recognition and weather
-
-### Installation
-
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/your-username/voice-web-automation.git
-   cd voice-web-automation
-   ```
-
-2. **Create Virtual Environment** (recommended):
-   ```bash
-   python -m venv venv
-   
-   # Windows
-   venv\Scripts\activate
-   
-   # macOS/Linux
-   source venv/bin/activate
-   ```
-
-3. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Test Your Setup**:
-   ```bash
-   python test_speech.py
-   ```
-   This will verify your microphone, speech recognition, and text-to-speech functionality.
-
-### Usage
-
-1. **Start the Assistant**:
-   ```bash
-   python voice_automation.py
-   ```
-
-2. **Try These Commands**:
-   ```
-   🌐 Web Navigation:
-   - "open google"
-   - "go to youtube"
-   - "visit github"
-   
-   🔍 Search:
-   - "search for python tutorials"
-   - "google machine learning"
-   - "amazon wireless headphones"
-   
-   📄 Page Control:
-   - "scroll down 500"
-   - "click on sign in"
-   - "go back"
-   - "refresh page"
-   
-   ℹ️ Information:
-   - "what time is it"
-   - "weather in London"
-   
-   🚪 Exit:
-   - "quit" or "bye"
-   ```
-
-## 📋 Command Reference
-
-### Website Navigation
-| Command | Action | Example |
-|---------|--------|---------|
-| `open [site]` | Open website | "open wikipedia" |
-| `go to [url]` | Navigate to URL | "go to example.com" |
-| `visit [site]` | Visit website | "visit stackoverflow" |
-
-### Search Commands
-| Command | Action | Example |
-|---------|--------|---------|
-| `search for [query]` | Google search | "search for AI tutorials" |
-| `google [query]` | Google search | "google python docs" |
-| `amazon [query]` | Amazon search | "amazon bluetooth speaker" |
-
-### Page Control
-| Command | Action | Example |
-|---------|--------|---------|
-| `scroll down [pixels]` | Scroll down | "scroll down 300" |
-| `scroll up [pixels]` | Scroll up | "scroll up 200" |
-| `scroll to bottom` | Scroll to bottom | "scroll to bottom" |
-| `click on [element]` | Click element | "click on login" |
-
-### Browser Navigation
-| Command | Action |
-|---------|--------|
-| `go back` | Browser back |
-| `go forward` | Browser forward |
-| `refresh` | Reload page |
-
-### System Information
-| Command | Action | Example |
-|---------|--------|---------|
-| `what time` | Current time | "what time is it" |
-| `weather in [city]` | Weather info | "weather in Paris" |
-
-## 🔧 Configuration
-
-### Customizing Quick Sites
-Edit the `quick_sites` dictionary in `voice_automation.py`:
-
-```python
-self.quick_sites = {
-    "youtube": "https://www.youtube.com",
-    "mysite": "https://example.com",  # Add custom sites
-    # ... more sites
-}
-```
-
-### Adjusting Speech Settings
-Modify TTS settings in the `configure_tts()` method:
-
-```python
-self.engine.setProperty('rate', 180)     # Speech speed
-self.engine.setProperty('volume', 0.9)   # Volume level
-```
-
-### Adding Custom Commands
-Extend the `command_patterns` dictionary to add new command types:
-
-```python
-self.command_patterns = {
-    'your_command': [
-        r'your\s+pattern\s+(.+)',
-        r'alternative\s+pattern\s+(.+)'
-    ]
-}
-```
-
-## 🛠️ Troubleshooting
-
-### Common Issues
-
-**Speech Recognition Not Working**:
-```bash
-# Test your setup
-python test_speech.py
-
-# Check microphone permissions in system settings
-# Ensure internet connection for Google Speech API
-```
-
-**Browser Not Opening**:
-```bash
-# Update ChromeDriver
-pip install webdriver-manager --upgrade
-
-# Ensure Chrome browser is installed and updated
-```
-
-**TTS Not Working**:
-```bash
-# Check audio output devices
-# Try different TTS engines
-# Verify pyttsx3 installation
-```
-
-### Debug Mode
-Enable detailed logging by modifying the logging level:
-
-```python
-logging.basicConfig(level=logging.DEBUG)
-```
-
-### Performance Optimization
-- Close unnecessary browser tabs
-- Use `--headless` Chrome option for background operation
-- Adjust timeout values for slower connections
-
-## 📁 Project Structure
-
-```
-voice-web-automation/
-├── voice_automation.py    # Main assistant class
-├── test_speech.py         # Audio testing utility
-├── requirements.txt       # Python dependencies
-├── README.md             # Documentation
-└── voice_automation.log  # Runtime logs
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Development Guidelines
-- Follow PEP 8 style guidelines
-- Add type hints for new functions
-- Include error handling for external API calls
-- Update documentation for new features
-
-## 🐛 Known Issues
-
-- Speech recognition may struggle with heavy accents
-- Chrome updates can occasionally break WebDriver compatibility
-- Weather API has rate limiting (rarely encountered)
-
-## 🔮 Future Enhancements
-
-- [ ] Support for Firefox and Edge browsers
-- [ ] Custom wake word detection
-- [ ] Voice command macro recording
-- [ ] Integration with calendar and email
-- [ ] Offline speech recognition option
-- [ ] Mobile app companion
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Built with [Selenium](https://selenium.dev) for web automation
-- Uses [SpeechRecognition](https://pypi.org/project/SpeechRecognition/) for voice input
-- Weather data from [wttr.in](https://wttr.in) API
-- Text-to-speech powered by [pyttsx3](https://pypi.org/project/pyttsx3/)
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-
-1. Check the [troubleshooting section](#-troubleshooting)
-2. Run `python test_speech.py` to diagnose audio issues
-3. Check the `voice_automation.log` file for detailed error information
-4. Open an issue on GitHub with your system details and error logs
+[![CI](https://github.com/TechWithAnish/Voice-Controlled-Web-Automation/actions/workflows/ci.yml/badge.svg)](https://github.com/TechWithAnish/Voice-Controlled-Web-Automation/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ---
 
-**Made with ❤️ for hands-free web browsing**
+## Install
+
+Requires Python 3.10 or newer and Google Chrome. The matching ChromeDriver is
+downloaded automatically on first run.
+
+```bash
+git clone https://github.com/TechWithAnish/Voice-Controlled-Web-Automation.git
+cd Voice-Controlled-Web-Automation
+
+python -m venv .venv
+# Windows
+.venv\Scripts\activate
+# macOS / Linux
+source .venv/bin/activate
+
+pip install -e .
+```
+
+For microphone input you also need PyAudio:
+
+```bash
+pip install -e ".[mic]"
+```
+
+<details>
+<summary>If PyAudio fails to build</summary>
+
+PyAudio compiles against PortAudio, which is not bundled on every platform.
+
+- **Windows** — `pip install pipwin && pipwin install pyaudio`
+- **macOS** — `brew install portaudio` first
+- **Debian / Ubuntu** — `sudo apt install portaudio19-dev python3-dev` first
+
+You do not need PyAudio to try the assistant: `--text` mode drives the same
+pipeline from the keyboard.
+</details>
+
+## Check your setup
+
+```bash
+voice-automation --doctor
+```
+
+Each check reports a remedy if it fails:
+
+```
+Voice automation pre-flight checks
+----------------------------------------------
+[PASS] Python version: 3.12.4 on Windows AMD64
+[PASS] Configuration: valid (overrides: none)
+[PASS] Chrome browser: C:\Program Files\Google\Chrome\Application\chrome.exe
+[PASS] Microphone: 3 device(s), default: Microphone Array
+[PASS] Text to speech: 2 voice(s): Microsoft Zira, Microsoft David
+[PASS] Network: reached google.com (HTTP 200)
+----------------------------------------------
+All checks passed.
+```
+
+## Run
+
+```bash
+voice-automation                       # listen on the microphone
+voice-automation --text                # type commands instead of speaking
+voice-automation --command "open youtube" --command "scroll down 400"
+voice-automation --headless --no-speech
+```
+
+`python -m voice_automation` works identically.
+
+| Flag | Effect |
+|---|---|
+| `--doctor` | Run pre-flight checks and exit |
+| `--text` | Read typed commands from stdin instead of the microphone |
+| `--command TEXT` | Run one command and exit; repeatable, implies `--text` |
+| `--headless` | Run Chrome without a visible window |
+| `--no-speech` | Print responses instead of speaking them |
+| `--search-engine` | `google` (default), `duckduckgo` or `bing` |
+| `--log-level` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
+| `--log-file PATH` | Write rotating logs to `PATH` |
+
+Exit codes: `0` normal, `1` runtime failure, `2` invalid configuration.
+
+## Commands
+
+The assistant tolerates filler ("please open youtube", "can you go back"),
+spoken punctuation ("example dot com slash docs") and spoken numbers
+("scroll down two hundred").
+
+### Navigation
+
+| Say | Action |
+|---|---|
+| `open youtube` / `go to example.com` / `visit github` | Open a site |
+| `youtube` | A known site name on its own opens it |
+| `go back` / `go forward` / `refresh` | Browser history |
+| `where am i` | Read out the current page |
+
+### Search
+
+| Say | Action |
+|---|---|
+| `search for python tutorials` | Web search |
+| `google machine learning` / `look up tide times` | Web search |
+| `search amazon for headphones` / `buy milk` | Amazon |
+| `search youtube for jazz` / `play lo-fi on youtube` | YouTube |
+| `search wikipedia for turing` / `who is ada lovelace` | Wikipedia |
+
+### Page control
+
+| Say | Action |
+|---|---|
+| `click on sign in` / `press submit` | Click a link, button or control |
+| `scroll down` / `scroll down 400` / `scroll down two hundred` | Scroll |
+| `scroll up` / `scroll to top` / `scroll to bottom` | Scroll |
+
+### Information and control
+
+| Say | Action |
+|---|---|
+| `what time is it` / `what is the date` | Clock and calendar |
+| `weather in london` | Current conditions |
+| `help` | List examples |
+| `exit` / `quit` / `close the browser` | Shut down |
+
+Anything unrecognised is answered with the closest known command rather than
+guessed at.
+
+## Configuration
+
+Every setting is optional. Copy [`.env.example`](.env.example) to `.env`, or
+export the variables directly. No API keys are needed: speech recognition
+uses Google's free endpoint and weather comes from
+[wttr.in](https://wttr.in).
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `VA_HEADLESS` | `false` | Run Chrome without a window |
+| `VA_PAGE_LOAD_TIMEOUT` | `30` | Seconds before a page load is abandoned |
+| `VA_ELEMENT_TIMEOUT` | `8` | Seconds spent looking for an element to click |
+| `VA_SCROLL_STEP` | `400` | Default scroll distance in pixels |
+| `VA_CHROME_BINARY` | auto | Path to Chrome, if it is not auto-detected |
+| `VA_CHROMEDRIVER_PATH` | auto | Path to a pinned ChromeDriver |
+| `VA_DISABLE_SANDBOX` | `false` | Add `--no-sandbox`; needed in containers only |
+| `VA_SPEECH_LANGUAGE` | `en-US` | Recognition language, e.g. `en-IN` |
+| `VA_LISTEN_TIMEOUT` | `8` | Seconds of silence before giving up on a turn |
+| `VA_AMBIENT_CALIBRATION` | `1` | Seconds of noise calibration |
+| `VA_RECALIBRATE_EVERY` | `25` | Commands between re-calibrations (`0` = once) |
+| `VA_ENERGY_THRESHOLD` | auto | Fixed microphone sensitivity for noisy rooms |
+| `VA_TTS_ENABLED` | `true` | Speak responses |
+| `VA_TTS_RATE` / `VA_TTS_VOLUME` / `VA_TTS_VOICE` | `180` / `0.9` / auto | Voice tuning |
+| `VA_SEARCH_ENGINE` | `google` | `google`, `duckduckgo` or `bing` |
+| `VA_DEFAULT_WEATHER_CITY` | unset | Used when you say "weather" with no city |
+| `VA_LOG_LEVEL` | `INFO` | Logging verbosity |
+| `VA_LOG_FILE` | unset | Enable rotating file logging |
+| `VA_MAX_CONSECUTIVE_FAILURES` | `5` | Failures tolerated before stopping |
+
+An invalid value fails at start-up and names the variable, rather than
+surfacing later as a confusing browser error.
+
+## How it works
+
+```
+microphone ──► speech/listener ──► commands/parser ──► assistant ──► browser/controller ──► Chrome
+                                        (pure)            │
+                                                          ├──► services/weather
+                                                          └──► speech/tts ──► speaker
+```
+
+| Module | Responsibility |
+|---|---|
+| `config` | Typed settings, validated at start-up |
+| `commands` | Utterance to intent. No I/O, so it is exhaustively testable |
+| `browser` | A small, safe action surface over Selenium |
+| `speech` | Microphone capture and speech output, behind protocols |
+| `services` | Outbound HTTP (weather) |
+| `assistant` | Orchestration, failure handling and shutdown |
+| `cli` | Arguments, logging, signals, exit codes |
+
+Each layer depends only on the ones below it, and every collaborator is
+injected, so the command loop can be tested end to end with fakes.
+
+### Adding a command
+
+1. Add a member to `Intent` in `commands/models.py`.
+2. Add an anchored pattern to `RULES` in `commands/parser.py`. Order matters:
+   specific rules go above general ones.
+3. Add a `_do_<intent>` method to `VoiceAssistant`.
+4. Add a parser case and a loop case to the tests.
+
+## Development
+
+```bash
+pip install -r requirements-dev.txt
+pre-commit install          # optional
+
+pytest                      # 292 tests, no browser or microphone needed
+pytest --cov --cov-report=term-missing
+pytest -m browser           # opt-in: drives a real Chrome against a local page
+ruff check .
+mypy
+```
+
+The default suite fakes every external collaborator, so it runs offline in
+about two seconds. CI runs it on Python 3.10 through 3.13 on Linux and
+Windows. The `browser` marker selects a small set of integration tests that
+need Chrome and a matching ChromeDriver; they are deselected by default.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `No usable microphone was found` | PyAudio is missing or no input device is present. Run `--doctor`; use `--text` meanwhile. |
+| Nothing is heard in a noisy room | Set `VA_ENERGY_THRESHOLD` to a fixed value such as `300`, or raise `VA_AMBIENT_CALIBRATION`. |
+| `Could not start Chrome` | Chrome is missing or an old ChromeDriver is cached. Update Chrome, or set `VA_CHROME_BINARY`. |
+| Responses are printed, not spoken | No speech engine. On Linux install `espeak-ng`; on Windows check SAPI5 voices. |
+| A command does the wrong thing | Run with `--text` and `--log-level DEBUG`: the log records the intent each utterance matched. |
+| Recognition struggles with your accent | Set `VA_SPEECH_LANGUAGE`, for example `en-IN` or `en-GB`. |
+
+## Privacy
+
+Audio is sent to Google's speech recognition service for transcription; that
+is how the `SpeechRecognition` package's free endpoint works. Weather queries
+go to wttr.in. Nothing else leaves your machine, and no transcript is stored
+unless you enable file logging with `VA_LOG_FILE`.
+
+## Limitations
+
+- Chrome only. Firefox and Edge are not supported.
+- Recognition needs an internet connection; there is no offline mode.
+- Clicking matches visible text, labels and titles. It cannot target an
+  element that has no accessible text.
+- One tab. There is no tab or window management.
+
+## Project layout
+
+```
+.
+├── src/voice_automation/     # the package
+│   ├── assistant.py          # orchestration
+│   ├── cli.py                # entry point
+│   ├── config.py             # settings
+│   ├── diagnostics.py        # --doctor
+│   ├── logging_setup.py
+│   ├── urls.py               # URL safety and search templates
+│   ├── browser/              # Selenium wrapper, XPath escaping
+│   ├── commands/             # intent parsing
+│   ├── services/             # weather
+│   └── speech/               # microphone and text-to-speech
+├── tests/                    # 292 offline tests
+│   └── integration/          # opt-in live-browser tests (pytest -m browser)
+├── examples/                 # unsupported legacy scripts
+└── .github/workflows/ci.yml
+```
+
+## Contributing
+
+1. Fork and branch from `main`.
+2. `pip install -r requirements-dev.txt`.
+3. Keep `ruff check .`, `mypy` and `pytest` green; new behaviour needs a test.
+4. Note user-visible changes in `CHANGELOG.md`.
+5. Open a pull request.
+
+## Licence
+
+MIT — see [LICENSE](LICENSE).
+
+Built with [Selenium](https://selenium.dev),
+[SpeechRecognition](https://pypi.org/project/SpeechRecognition/),
+[pyttsx3](https://pypi.org/project/pyttsx3/),
+[RapidFuzz](https://pypi.org/project/rapidfuzz/) and
+[wttr.in](https://wttr.in).
