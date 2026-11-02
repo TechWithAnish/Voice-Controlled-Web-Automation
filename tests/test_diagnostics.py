@@ -62,16 +62,50 @@ def test_tts_check_honours_the_disable_flag():
     assert "disabled" in result.detail
 
 
-def test_microphone_failure_explains_text_mode(monkeypatch):
-    import speech_recognition as sr
+def test_microphone_with_no_backend_offers_the_compiler_free_option(monkeypatch):
+    """PyAudio needs a C toolchain; the remedy must not require one."""
+    from voice_automation.speech import microphone
 
-    def explode():
-        raise OSError("portaudio missing")
-
-    monkeypatch.setattr(sr.Microphone, "list_microphone_names", staticmethod(explode))
+    monkeypatch.setattr(microphone, "available_backend", lambda: None)
     result = diagnostics.check_microphone()
     assert result.ok is False
+    assert "sounddevice" in (result.remedy or "")
     assert "--text" in (result.remedy or "")
+
+
+def test_microphone_names_the_backend_in_use(monkeypatch):
+    from voice_automation.speech import microphone
+
+    monkeypatch.setattr(microphone, "available_backend", lambda: "sounddevice")
+    monkeypatch.setattr(microphone, "list_microphones", lambda: ["Mic Array", "Webcam"])
+    result = diagnostics.check_microphone()
+    assert result.ok is True
+    assert "sounddevice" in result.detail
+    assert "Mic Array" in result.detail
+
+
+def test_unusable_backend_is_distinguished_from_a_missing_one(monkeypatch):
+    from voice_automation.exceptions import SpeechUnavailableError
+    from voice_automation.speech import microphone
+
+    def explode():
+        raise SpeechUnavailableError("PortAudio device error")
+
+    monkeypatch.setattr(microphone, "available_backend", lambda: "pyaudio")
+    monkeypatch.setattr(microphone, "list_microphones", explode)
+    result = diagnostics.check_microphone()
+    assert result.ok is False
+    assert "installed but unusable" in result.detail
+
+
+def test_backend_with_no_devices_is_reported(monkeypatch):
+    from voice_automation.speech import microphone
+
+    monkeypatch.setattr(microphone, "available_backend", lambda: "sounddevice")
+    monkeypatch.setattr(microphone, "list_microphones", list)
+    result = diagnostics.check_microphone()
+    assert result.ok is False
+    assert "no input devices" in result.detail
 
 
 def test_report_returns_nonzero_when_a_check_fails(monkeypatch, capsys):

@@ -13,7 +13,7 @@ import sys
 from dataclasses import dataclass
 
 from .config import Settings
-from .exceptions import ConfigError
+from .exceptions import ConfigError, VoiceAutomationError
 
 MIN_PYTHON = (3, 10)
 
@@ -102,32 +102,42 @@ def check_tts(settings: Settings) -> CheckResult:
 
 
 def check_microphone() -> CheckResult:
-    try:
-        import speech_recognition as sr
-    except ImportError as exc:  # pragma: no cover - dependency is required
-        return CheckResult(
-            "Microphone", False, str(exc), remedy="pip install SpeechRecognition"
-        )
-    try:
-        names = sr.Microphone.list_microphone_names()
-    except Exception as exc:
+    """Report which audio backend is installed and what it can see."""
+    from .speech.microphone import available_backend, list_microphones
+
+    backend = available_backend()
+    if backend is None:
         return CheckResult(
             "Microphone",
             False,
-            f"audio backend unavailable ({exc})",
+            "no audio input backend installed",
             remedy=(
-                "Install PyAudio (pip install 'voice-web-automation[mic]'). On Linux "
-                "install portaudio19-dev first. Text mode (--text) works without it."
+                'Run: pip install -e ".[mic]" -- that installs sounddevice, which '
+                "ships prebuilt wheels and needs no compiler. PyAudio also works if "
+                "you already have one. Text mode (--text) works without either."
             ),
         )
+
+    try:
+        names = list_microphones()
+    except VoiceAutomationError as exc:
+        return CheckResult(
+            "Microphone",
+            False,
+            f"{backend} is installed but unusable ({exc})",
+            remedy="Check that an audio device is connected and not in exclusive use.",
+        )
+
     if not names:
         return CheckResult(
             "Microphone",
             False,
-            "no input devices detected",
+            f"{backend} found no input devices",
             remedy="Connect a microphone and grant the terminal permission to use it.",
         )
-    return CheckResult("Microphone", True, f"{len(names)} device(s), default: {names[0]}")
+    return CheckResult(
+        "Microphone", True, f"{backend}, {len(names)} device(s), default: {names[0]}"
+    )
 
 
 def check_network() -> CheckResult:

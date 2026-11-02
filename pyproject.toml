@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "voice-web-automation"
-version = "2.1.0"
+version = "2.2.0"
 description = "Hands-free web browsing driven by spoken commands, in Chrome, Edge, Brave or Firefox."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,9 +36,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# PyAudio needs a compiler and portaudio headers, so it is kept out of the
-# default install: --text mode and the test suite work without it.
-mic = ["PyAudio>=0.2.13"]
+# sounddevice ships py3-none wheels with PortAudio bundled, so it installs on
+# any Python version without a compiler. PyAudio remains an option for anyone
+# who already has a working one.
+mic = ["sounddevice>=0.4.6"]
+mic-pyaudio = ["PyAudio>=0.2.13"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",

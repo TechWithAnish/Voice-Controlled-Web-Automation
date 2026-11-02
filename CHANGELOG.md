@@ -4,6 +4,36 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-11-02
+
+### Added
+
+- **A microphone backend that needs no compiler.** `sounddevice` is now the
+  default audio input, adapted to the `AudioSource` interface the recogniser
+  expects. Its wheels are tagged `py3-none` and bundle PortAudio, so it
+  installs on any Python 3 version without a C toolchain. PyAudio still
+  works and takes priority when present; install it with the
+  `mic-pyaudio` extra.
+- `VA_MICROPHONE_INDEX` to choose an input device when the default is wrong.
+- `--doctor` names the audio backend in use and lists input devices through
+  whichever one is installed.
+
+### Fixed
+
+- `pip install -e ".[mic]"` failed on Python 3.14 with "Microsoft Visual C++
+  14.0 or greater is required". PyPI has no PyAudio wheel for that version,
+  so pip fell back to compiling it from source. The default extra no longer
+  requires a compiler on any platform.
+- A PyAudio install that is present but broken now falls back to another
+  backend instead of aborting speech input.
+- Eight tests compared a stringified `Path` against a hard-coded
+  forward-slash literal and failed on Windows, where
+  `str(Path("/usr/bin/brave"))` is `\usr\bin\brave`. Fixtures now compare
+  `Path` objects, whose equality normalises separators. Product behaviour was
+  unaffected.
+
+[2.2.0]: https://github.com/TechWithAnish/Voice-Controlled-Web-Automation/releases/tag/v2.2.0
+
 ## [2.1.0] - 2026-11-02
 
 ### Added

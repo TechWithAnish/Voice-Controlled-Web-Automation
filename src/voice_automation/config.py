@@ -130,6 +130,8 @@ class Settings:
 
     # --- speech input --------------------------------------------------
     speech_language: str = "en-US"
+    #: Index of the input device; None uses the system default.
+    microphone_index: int | None = None
     listen_timeout: float = 8.0
     phrase_time_limit: float = 10.0
     ambient_calibration: float = 1.0
@@ -210,6 +212,11 @@ class Settings:
             disable_sandbox=_get_bool(source, "disable_sandbox", defaults.disable_sandbox),
             speech_language=_get_str(source, "speech_language", defaults.speech_language)
             or defaults.speech_language,
+            microphone_index=(
+                None
+                if _get_str(source, "microphone_index", None) is None
+                else _get_int(source, "microphone_index", 0, minimum=0, maximum=512)
+            ),
             listen_timeout=_get_float(
                 source, "listen_timeout", defaults.listen_timeout, minimum=1.0, maximum=300.0
             ),

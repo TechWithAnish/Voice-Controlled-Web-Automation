@@ -32,24 +32,32 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-For microphone input you also need PyAudio:
+For microphone input, add the audio backend:
 
 ```bash
 pip install -e ".[mic]"
 ```
 
+That installs `sounddevice`, which ships prebuilt wheels with PortAudio
+bundled — no compiler, and it works on every Python 3 version.
+
 <details>
-<summary>If PyAudio fails to build</summary>
+<summary>Using PyAudio instead</summary>
 
-PyAudio compiles against PortAudio, which is not bundled on every platform.
+PyAudio also works and takes priority when both are installed:
 
-- **Windows** — `pip install pipwin && pipwin install pyaudio`
-- **macOS** — `brew install portaudio` first
-- **Debian / Ubuntu** — `sudo apt install portaudio19-dev python3-dev` first
+```bash
+pip install -e ".[mic-pyaudio]"
+```
 
-You do not need PyAudio to try the assistant: `--text` mode drives the same
-pipeline from the keyboard.
+It is a C extension, so pip compiles it from source whenever PyPI has no
+wheel for your Python version. That needs Microsoft Visual C++ Build Tools on
+Windows, `brew install portaudio` on macOS, or `portaudio19-dev` on Debian.
+`sounddevice` avoids all of that, which is why it is the default.
 </details>
+
+Neither is needed to try the assistant: `--text` drives the same pipeline
+from the keyboard.
 
 ## Check your setup
 
@@ -65,7 +73,7 @@ Voice automation pre-flight checks
 [PASS] Python version: 3.12.4 on Windows AMD64
 [PASS] Configuration: valid (overrides: none)
 [PASS] Browser: using Microsoft Edge (C:\Program Files\Microsoft\Edge\Application\msedge.exe); installed: Microsoft Edge, Brave
-[PASS] Microphone: 3 device(s), default: Microphone Array
+[PASS] Microphone: sounddevice, 3 device(s), default: Microphone Array
 [PASS] Text to speech: 2 voice(s): Microsoft Zira, Microsoft David
 [PASS] Network: reached google.com (HTTP 200)
 ----------------------------------------------
@@ -165,6 +173,7 @@ cp .env.example .env
 | `VA_SCROLL_STEP` | `400` | Default scroll distance in pixels |
 | `VA_DISABLE_SANDBOX` | `false` | Add `--no-sandbox`; needed in containers only |
 | `VA_SPEECH_LANGUAGE` | `en-US` | Recognition language, e.g. `en-IN` |
+| `VA_MICROPHONE_INDEX` | default | Input device index, as listed by `--doctor` |
 | `VA_LISTEN_TIMEOUT` | `8` | Seconds of silence before giving up on a turn |
 | `VA_AMBIENT_CALIBRATION` | `1` | Seconds of noise calibration |
 | `VA_RECALIBRATE_EVERY` | `25` | Commands between re-calibrations (`0` = once) |
@@ -216,7 +225,7 @@ injected, so the command loop can be tested end to end with fakes.
 pip install -r requirements-dev.txt
 pre-commit install          # optional
 
-pytest                      # 329 tests, no browser or microphone needed
+pytest                      # 352 tests, no browser or microphone needed
 pytest --cov --cov-report=term-missing
 pytest -m browser           # opt-in: drives a real browser against a local page
 ruff check .
@@ -232,7 +241,9 @@ launch a real browser; they are deselected by default.
 
 | Symptom | Cause and fix |
 |---|---|
-| `No usable microphone was found` | PyAudio is missing or no input device is present. Run `--doctor`; use `--text` meanwhile. |
+| `No audio input backend is installed` | Run `pip install -e ".[mic]"`. Use `--text` meanwhile. |
+| PyAudio fails to build with "Visual C++ 14.0 or greater is required" | No prebuilt wheel exists for your Python version. Use `pip install -e ".[mic]"` instead — `sounddevice` needs no compiler. |
+| Wrong microphone is used | Run `--doctor` to list devices, then set `VA_MICROPHONE_INDEX`. |
 | Nothing is heard in a noisy room | Set `VA_ENERGY_THRESHOLD` to a fixed value such as `300`, or raise `VA_AMBIENT_CALIBRATION`. |
 | `No supported browser was found` | Install Chrome, Edge, Brave or Firefox, or point `VA_BROWSER_BINARY` at an executable. |
 | `<browser> is not installed` | `VA_BROWSER` names one you do not have. Run `--doctor` to see what is installed. |
@@ -269,8 +280,8 @@ unless you enable file logging with `VA_LOG_FILE`.
 │   ├── browser/              # discovery, Selenium wrapper, XPath escaping
 │   ├── commands/             # intent parsing
 │   ├── services/             # weather
-│   └── speech/               # microphone and text-to-speech
-├── tests/                    # 329 offline tests
+│   └── speech/               # microphone backends and text-to-speech
+├── tests/                    # 352 offline tests
 │   └── integration/          # opt-in live-browser tests (pytest -m browser)
 ├── examples/                 # unsupported legacy scripts
 └── .github/workflows/ci.yml

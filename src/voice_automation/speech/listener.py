@@ -20,6 +20,7 @@ import speech_recognition as sr
 
 from ..config import Settings
 from ..exceptions import SpeechServiceError, SpeechUnavailableError
+from .microphone import open_microphone
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,9 @@ class GoogleSpeechListener:
         self._recognizer.dynamic_energy_threshold = settings.energy_threshold is None
         if settings.energy_threshold is not None:
             self._recognizer.energy_threshold = settings.energy_threshold
-        self._microphone_factory = microphone_factory or sr.Microphone
+        self._microphone_factory = microphone_factory or (
+            lambda: open_microphone(device_index=settings.microphone_index)
+        )
         self._since_calibration = 0
         self._calibrated = False
 
@@ -78,10 +81,12 @@ class GoogleSpeechListener:
     def _open_microphone(self):  # type: ignore[no-untyped-def]
         try:
             return self._microphone_factory()
+        except SpeechUnavailableError:
+            raise
         except (OSError, AttributeError, ImportError) as exc:
             raise SpeechUnavailableError(
-                "No usable microphone was found. Install PyAudio and check that an "
-                "input device is connected and permitted."
+                "No usable microphone was found. Check that an input device is "
+                "connected and that this application is permitted to use it."
             ) from exc
 
     def _maybe_calibrate(self, source) -> None:  # type: ignore[no-untyped-def]
