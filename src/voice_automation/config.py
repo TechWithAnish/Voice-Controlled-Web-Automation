@@ -24,6 +24,9 @@ SEARCH_ENGINES = {
     "bing": "https://www.bing.com/search?q={query}",
 }
 
+#: Accepted values for VA_BROWSER. "auto" picks the first one installed.
+BROWSER_CHOICES = frozenset({"auto", "chrome", "edge", "brave", "firefox"})
+
 _TRUE = {"1", "true", "yes", "on", "y"}
 _FALSE = {"0", "false", "no", "off", "n"}
 
@@ -108,14 +111,19 @@ class Settings:
     """
 
     # --- browser -------------------------------------------------------
+    #: "auto" picks the first installed browser; otherwise one of
+    #: chrome, edge, brave or firefox.
+    browser: str = "auto"
     headless: bool = False
     maximize_window: bool = True
     page_load_timeout: float = 30.0
     element_timeout: float = 8.0
     scroll_step: int = 400
     max_scroll_step: int = 20_000
-    chrome_binary: str | None = None
-    chromedriver_path: str | None = None
+    #: Explicit path to the browser executable, when discovery cannot find it.
+    browser_binary: str | None = None
+    #: Explicit driver path; by default Selenium Manager resolves one.
+    driver_path: str | None = None
     #: ``--no-sandbox`` weakens Chrome's sandbox. Required inside most
     #: containers, never appropriate on a workstation, hence opt-in.
     disable_sandbox: bool = False
@@ -171,6 +179,13 @@ class Settings:
                 f"{sorted(SEARCH_ENGINES)}, got {engine!r}"
             )
 
+        browser = (_get_str(source, "browser", defaults.browser) or "").lower()
+        if browser not in BROWSER_CHOICES:
+            raise ConfigError(
+                f"{_env_name('browser')} must be one of "
+                f"{sorted(BROWSER_CHOICES)}, got {browser!r}"
+            )
+
         level = (_get_str(source, "log_level", defaults.log_level) or "").upper()
         if level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
             raise ConfigError(
@@ -189,8 +204,9 @@ class Settings:
             scroll_step=_get_int(
                 source, "scroll_step", defaults.scroll_step, minimum=1, maximum=20_000
             ),
-            chrome_binary=_get_str(source, "chrome_binary", defaults.chrome_binary),
-            chromedriver_path=_get_str(source, "chromedriver_path", defaults.chromedriver_path),
+            browser=browser,
+            browser_binary=_get_str(source, "browser_binary", defaults.browser_binary),
+            driver_path=_get_str(source, "driver_path", defaults.driver_path),
             disable_sandbox=_get_bool(source, "disable_sandbox", defaults.disable_sandbox),
             speech_language=_get_str(source, "speech_language", defaults.speech_language)
             or defaults.speech_language,

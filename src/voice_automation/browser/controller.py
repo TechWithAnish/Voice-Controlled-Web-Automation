@@ -2,12 +2,17 @@
 
 Design notes
 ------------
+*   Any Chromium-based browser (Chrome, Edge, Brave) or Firefox can be
+    driven; see :mod:`voice_automation.browser.browsers`.  The browser is a
+    configuration choice and defaults to whichever one is installed.
+*   Drivers are resolved by Selenium Manager, which ships with Selenium and
+    downloads a matching driver for the detected browser version.  An
+    explicit driver can still be pinned with ``VA_DRIVER_PATH``.
 *   The controller owns the driver's lifetime and is a context manager, so a
-    crash can never leak a Chrome process.
+    crash can never leak a browser process.
 *   Element lookup uses a single bounded :class:`WebDriverWait` that tries
-    every locator strategy on each poll.  The original implementation waited
-    five seconds per strategy in sequence, so a miss cost thirty seconds of
-    silence; here the whole search is capped by one timeout.
+    every locator strategy on each poll, rather than a separate timeout per
+    strategy.
 *   Every phrase interpolated into XPath goes through
     :func:`~voice_automation.browser.xpath.xpath_literal`.
 *   ``--no-sandbox`` is opt-in rather than always on.
@@ -19,7 +24,7 @@ import logging
 from collections.abc import Sequence
 from enum import Enum
 from types import TracebackType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from selenium import webdriver
 from selenium.common.exceptions import (
@@ -31,13 +36,12 @@ from selenium.common.exceptions import (
     TimeoutException,
     WebDriverException,
 )
-from selenium.webdriver.chrome.options import Options as ChromeOptions
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
 from ..config import Settings
 from ..exceptions import BrowserError, BrowserUnavailableError, ElementNotFoundError
+from .browsers import BrowserInfo, BrowserKind, resolve_browser
 from .xpath import lowercase_expr, xpath_literal
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -70,19 +74,35 @@ _INTERACTIVE = (
     "*[@role='menuitem']",
 )
 
+_WINDOW_WIDTH = 1920
+_WINDOW_HEIGHT = 1080
 
-def _build_options(settings: Settings) -> ChromeOptions:
-    """Translate :class:`Settings` into Chrome options."""
-    options = ChromeOptions()
+
+def _build_options(settings: Settings, info: BrowserInfo) -> Any:
+    """Build the options object for ``info``'s browser family."""
+    if info.kind is BrowserKind.FIREFOX:
+        return _firefox_options(settings, info)
+    return _chromium_options(settings, info)
+
+
+def _chromium_options(settings: Settings, info: BrowserInfo) -> Any:
+    from selenium.webdriver.chrome.options import Options as ChromeOptions
+    from selenium.webdriver.edge.options import Options as EdgeOptions
+
+    options = EdgeOptions() if info.kind is BrowserKind.EDGE else ChromeOptions()
+
     if settings.headless:
         options.add_argument("--headless=new")
-        options.add_argument("--window-size=1920,1080")
+        options.add_argument(f"--window-size={_WINDOW_WIDTH},{_WINDOW_HEIGHT}")
     if settings.disable_sandbox:
-        # Only appropriate inside a container; weakens Chrome's sandbox.
+        # Only appropriate inside a container; weakens the browser sandbox.
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-    if settings.chrome_binary:
-        options.binary_location = settings.chrome_binary
+
+    # Chromium forks such as Brave are driven by chromedriver, which must be
+    # told which binary to launch; naming it is harmless for Chrome and Edge.
+    if info.path is not None:
+        options.binary_location = str(info.path)
 
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-infobars")
@@ -92,22 +112,81 @@ def _build_options(settings: Settings) -> ChromeOptions:
     return options
 
 
+def _firefox_options(settings: Settings, info: BrowserInfo) -> Any:
+    from selenium.webdriver.firefox.options import Options as FirefoxOptions
+
+    options = FirefoxOptions()
+    if settings.headless:
+        options.add_argument("-headless")
+        options.add_argument("--width")
+        options.add_argument(str(_WINDOW_WIDTH))
+        options.add_argument("--height")
+        options.add_argument(str(_WINDOW_HEIGHT))
+    if info.path is not None:
+        options.binary_location = str(info.path)
+    return options
+
+
+def _build_service(settings: Settings, info: BrowserInfo) -> Any:
+    """Return a Service for ``info``, or ``None`` to let Selenium Manager decide."""
+    if not settings.driver_path:
+        return None
+    if info.kind is BrowserKind.FIREFOX:
+        from selenium.webdriver.firefox.service import Service as FirefoxService
+
+        return FirefoxService(executable_path=settings.driver_path)
+    if info.kind is BrowserKind.EDGE:
+        from selenium.webdriver.edge.service import Service as EdgeService
+
+        return EdgeService(executable_path=settings.driver_path)
+    from selenium.webdriver.chrome.service import Service as ChromeService
+
+    return ChromeService(executable_path=settings.driver_path)
+
+
+def _driver_class(kind: BrowserKind) -> Any:
+    if kind is BrowserKind.FIREFOX:
+        return webdriver.Firefox
+    if kind is BrowserKind.EDGE:
+        return webdriver.Edge
+    return webdriver.Chrome
+
+
 class BrowserController:
-    """Owns a Chrome session and exposes only the actions the assistant needs."""
+    """Owns a browser session and exposes only the actions the assistant needs."""
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._driver: webdriver.Chrome | None = None
+        self._driver: Any | None = None
+        self._info: BrowserInfo | None = None
 
     # -- lifecycle ------------------------------------------------------
+    @property
+    def info(self) -> BrowserInfo | None:
+        """Which browser this controller launched, once started."""
+        return self._info
+
     def start(self) -> None:
-        """Launch Chrome.  Raises :class:`BrowserError` on failure."""
+        """Launch the browser.  Raises :class:`BrowserError` on failure."""
         if self._driver is not None:
             return
+
         try:
-            service = self._build_service()
-            self._driver = webdriver.Chrome(
-                service=service, options=_build_options(self._settings)
+            info = resolve_browser(
+                self._settings.browser, self._settings.browser_binary
+            )
+        except LookupError as exc:
+            raise BrowserError(str(exc)) from exc
+
+        options = _build_options(self._settings, info)
+        service = _build_service(self._settings, info)
+        factory = _driver_class(info.kind)
+
+        try:
+            self._driver = (
+                factory(service=service, options=options)
+                if service is not None
+                else factory(options=options)
             )
             self._driver.set_page_load_timeout(self._settings.page_load_timeout)
             if self._settings.maximize_window and not self._settings.headless:
@@ -115,20 +194,16 @@ class BrowserController:
                     self._driver.maximize_window()
                 except WebDriverException:  # pragma: no cover - window manager quirk
                     logger.debug("Could not maximise the window", exc_info=True)
-            logger.info("Chrome started (headless=%s)", self._settings.headless)
+            self._info = info
+            logger.info(
+                "%s started (headless=%s)", info.label, self._settings.headless
+            )
         except WebDriverException as exc:
-            raise BrowserError(f"Could not start Chrome: {exc.msg or exc}") from exc
+            raise BrowserError(
+                f"Could not start {info.label}: {exc.msg or exc}"
+            ) from exc
         except Exception as exc:  # driver download, permissions, ...
-            raise BrowserError(f"Could not start Chrome: {exc}") from exc
-
-    def _build_service(self) -> Service:
-        if self._settings.chromedriver_path:
-            return Service(executable_path=self._settings.chromedriver_path)
-        # Imported lazily so that an offline run with an explicit driver path
-        # does not pay for the manager's network check.
-        from webdriver_manager.chrome import ChromeDriverManager
-
-        return Service(ChromeDriverManager().install())
+            raise BrowserError(f"Could not start {info.label}: {exc}") from exc
 
     def __enter__(self) -> BrowserController:
         self.start()
@@ -143,19 +218,19 @@ class BrowserController:
         self.quit()
 
     def quit(self) -> None:
-        """Close Chrome.  Safe to call repeatedly and from a signal handler."""
+        """Close the browser.  Safe to call repeatedly and from a signal handler."""
         driver, self._driver = self._driver, None
         if driver is None:
             return
         try:
             driver.quit()
-            logger.info("Chrome closed")
+            logger.info("Browser closed")
         except Exception:
-            logger.warning("Error while closing Chrome", exc_info=True)
+            logger.warning("Error while closing the browser", exc_info=True)
 
     # -- state ----------------------------------------------------------
     @property
-    def driver(self) -> webdriver.Chrome:
+    def driver(self) -> Any:
         if self._driver is None:
             raise BrowserUnavailableError("The browser is not running")
         return self._driver
@@ -173,13 +248,13 @@ class BrowserController:
 
     def current_url(self) -> str:
         try:
-            return self.driver.current_url
+            return str(self.driver.current_url)
         except WebDriverException as exc:
             raise BrowserUnavailableError(f"Browser session lost: {exc.msg or exc}") from exc
 
     def title(self) -> str:
         try:
-            return self.driver.title
+            return str(self.driver.title)
         except WebDriverException as exc:
             raise BrowserUnavailableError(f"Browser session lost: {exc.msg or exc}") from exc
 

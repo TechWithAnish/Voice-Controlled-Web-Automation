@@ -9,10 +9,8 @@ installation or their network before they report a bug.
 from __future__ import annotations
 
 import platform
-import shutil
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 
 from .config import Settings
 from .exceptions import ConfigError
@@ -59,37 +57,25 @@ def check_config() -> CheckResult:
     return CheckResult("Configuration", True, f"valid (overrides: {overrides})")
 
 
-def check_chrome() -> CheckResult:
-    candidates = (
-        "google-chrome",
-        "google-chrome-stable",
-        "chromium",
-        "chromium-browser",
-        "chrome",
-    )
-    for name in candidates:
-        found = shutil.which(name)
-        if found:
-            return CheckResult("Chrome browser", True, found)
-    if platform.system() == "Windows":  # pragma: no cover - platform specific
-        import os
+def check_browsers(settings: Settings) -> CheckResult:
+    """Report which browsers are installed and which one would be used."""
+    from .browser.browsers import discover, resolve_browser
 
-        for root in (
-            os.environ.get("PROGRAMFILES", ""),
-            os.environ.get("PROGRAMFILES(X86)", ""),
-            os.environ.get("LOCALAPPDATA", ""),
-        ):
-            if not root:
-                continue
-            path = Path(root) / "Google" / "Chrome" / "Application" / "chrome.exe"
-            if path.exists():
-                return CheckResult("Chrome browser", True, str(path))
-    return CheckResult(
-        "Chrome browser",
-        False,
-        "not found on PATH",
-        remedy="Install Google Chrome, or set VA_CHROME_BINARY to its full path.",
-    )
+    installed = discover()
+    names = ", ".join(info.label for info in installed) or "none"
+
+    try:
+        chosen = resolve_browser(settings.browser, settings.browser_binary)
+    except LookupError as exc:
+        return CheckResult(
+            "Browser",
+            False,
+            f"installed: {names}",
+            remedy=str(exc),
+        )
+
+    detail = f"using {chosen.label} ({chosen.path}); installed: {names}"
+    return CheckResult("Browser", True, detail)
 
 
 def check_tts(settings: Settings) -> CheckResult:
@@ -174,7 +160,7 @@ def run_checks(settings: Settings | None = None) -> list[CheckResult]:
     return [
         check_python(),
         check_config(),
-        check_chrome(),
+        check_browsers(resolved),
         check_microphone(),
         check_tts(resolved),
         check_network(),

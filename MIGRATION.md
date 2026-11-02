@@ -1,4 +1,28 @@
-# Migrating from 1.x
+# Migrating
+
+## From 2.0 to 2.1
+
+Two environment variables were renamed when browser support widened beyond
+Chrome:
+
+| 2.0 | 2.1 |
+|---|---|
+| `VA_CHROME_BINARY` | `VA_BROWSER_BINARY` |
+| `VA_CHROMEDRIVER_PATH` | `VA_DRIVER_PATH` |
+
+Neither is normally set, so most installs need no change. New in 2.1:
+`VA_BROWSER` chooses between `auto`, `chrome`, `edge`, `brave` and
+`firefox`; `auto` is the default and picks the first one installed.
+
+`webdriver-manager` is no longer a dependency -- Selenium Manager, built
+into Selenium, resolves drivers for every supported browser. You can
+uninstall it:
+
+```bash
+pip uninstall webdriver-manager
+```
+
+## From 1.x
 
 ## What changed at a glance
 

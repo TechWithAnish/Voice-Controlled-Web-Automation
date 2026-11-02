@@ -21,7 +21,7 @@ from . import __version__
 from .assistant import EXIT_FAILURE, EXIT_OK, VoiceAssistant
 from .browser import BrowserController
 from .commands import CommandParser
-from .config import SEARCH_ENGINES, Settings
+from .config import BROWSER_CHOICES, SEARCH_ENGINES, Settings
 from .diagnostics import report
 from .exceptions import BrowserError, ConfigError, VoiceAutomationError
 from .logging_setup import configure_logging
@@ -60,7 +60,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="run a single command and exit; repeatable. Implies --text",
     )
     parser.add_argument(
-        "--headless", action="store_true", help="run Chrome without a visible window"
+        "--browser",
+        choices=sorted(BROWSER_CHOICES),
+        help="browser to drive (default: auto, the first one installed)",
+    )
+    parser.add_argument(
+        "--headless", action="store_true", help="run without a visible window"
     )
     parser.add_argument(
         "--no-speech",
@@ -89,6 +94,8 @@ def build_parser() -> argparse.ArgumentParser:
 def apply_overrides(settings: Settings, args: argparse.Namespace) -> Settings:
     """Apply command-line flags on top of environment-derived settings."""
     changes: dict[str, Any] = {}
+    if args.browser:
+        changes["browser"] = args.browser
     if args.headless:
         changes["headless"] = True
     if args.no_speech:

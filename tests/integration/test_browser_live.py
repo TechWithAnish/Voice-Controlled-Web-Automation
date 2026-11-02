@@ -4,42 +4,39 @@ Run them with:
 
     pytest -m browser
 
-They need Chrome and a ChromeDriver, so CI runs the rest of the suite
-without them. Their job is to prove that the locator strategies the unit
-tests assert on are accepted by a real browser -- in particular that a
-phrase containing an apostrophe no longer raises InvalidSelectorException.
+They launch a real browser -- whichever one ``VA_BROWSER`` selects, or the
+first one installed -- so CI runs the rest of the suite without them. Their
+job is to prove that the locator strategies the unit tests assert on are
+accepted by a real engine, in particular that a phrase containing an
+apostrophe no longer raises InvalidSelectorException.
 """
 
 from __future__ import annotations
 
+import os
 import shutil
 
 import pytest
 
 from voice_automation.browser import BrowserController, ScrollDirection
+from voice_automation.browser.browsers import discover
 from voice_automation.config import Settings
 from voice_automation.exceptions import ElementNotFoundError
 
 pytestmark = pytest.mark.browser
 
 
-def _chrome_available() -> bool:
-    return any(
-        shutil.which(name)
-        for name in ("google-chrome", "google-chrome-stable", "chromium", "chrome")
-    )
-
-
 @pytest.fixture(scope="module")
 def browser():
-    if not _chrome_available():
-        pytest.skip("Chrome is not installed")
+    if not discover():
+        pytest.skip("No supported browser is installed")
     settings = Settings(
+        browser=os.environ.get("VA_BROWSER", "auto"),
         headless=True,
         disable_sandbox=True,
         maximize_window=False,
         element_timeout=6.0,
-        chromedriver_path=shutil.which("chromedriver"),
+        driver_path=shutil.which("chromedriver") or None,
     )
     controller = BrowserController(settings)
     controller.start()

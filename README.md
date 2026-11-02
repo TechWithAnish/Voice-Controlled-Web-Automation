@@ -1,19 +1,23 @@
 # Voice-Controlled Web Automation
 
-Drive a real Chrome browser by speaking. Say *"open youtube"*, *"search for
-python tutorials"*, *"click on sign in"*, *"scroll down 400"* — the assistant
-hears the command, performs it, and tells you what it did.
+Drive a real browser by speaking. Say *"open youtube"*, *"search for python
+tutorials"*, *"click on sign in"*, *"scroll down 400"* — the assistant hears
+the command, performs it, and tells you what it did.
+
+Works with **Chrome, Edge, Brave and Firefox**. By default it uses whichever
+one you already have installed; no driver download or setup is needed.
 
 [![CI](https://github.com/TechWithAnish/Voice-Controlled-Web-Automation/actions/workflows/ci.yml/badge.svg)](https://github.com/TechWithAnish/Voice-Controlled-Web-Automation/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
+[![Browsers](https://img.shields.io/badge/browsers-Chrome%20%7C%20Edge%20%7C%20Brave%20%7C%20Firefox-blue)](#install)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ---
 
 ## Install
 
-Requires Python 3.10 or newer and Google Chrome. The matching ChromeDriver is
-downloaded automatically on first run.
+Requires Python 3.10 or newer and one of Chrome, Edge, Brave or Firefox. The
+matching driver is downloaded automatically on first run by Selenium Manager.
 
 ```bash
 git clone https://github.com/TechWithAnish/Voice-Controlled-Web-Automation.git
@@ -60,7 +64,7 @@ Voice automation pre-flight checks
 ----------------------------------------------
 [PASS] Python version: 3.12.4 on Windows AMD64
 [PASS] Configuration: valid (overrides: none)
-[PASS] Chrome browser: C:\Program Files\Google\Chrome\Application\chrome.exe
+[PASS] Browser: using Microsoft Edge (C:\Program Files\Microsoft\Edge\Application\msedge.exe); installed: Microsoft Edge, Brave
 [PASS] Microphone: 3 device(s), default: Microphone Array
 [PASS] Text to speech: 2 voice(s): Microsoft Zira, Microsoft David
 [PASS] Network: reached google.com (HTTP 200)
@@ -73,6 +77,7 @@ All checks passed.
 ```bash
 voice-automation                       # listen on the microphone
 voice-automation --text                # type commands instead of speaking
+voice-automation --browser brave       # pick a browser
 voice-automation --command "open youtube" --command "scroll down 400"
 voice-automation --headless --no-speech
 ```
@@ -84,7 +89,8 @@ voice-automation --headless --no-speech
 | `--doctor` | Run pre-flight checks and exit |
 | `--text` | Read typed commands from stdin instead of the microphone |
 | `--command TEXT` | Run one command and exit; repeatable, implies `--text` |
-| `--headless` | Run Chrome without a visible window |
+| `--browser` | `auto` (default), `chrome`, `edge`, `brave` or `firefox` |
+| `--headless` | Run without a visible window |
 | `--no-speech` | Print responses instead of speaking them |
 | `--search-engine` | `google` (default), `duckduckgo` or `bing` |
 | `--log-level` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
@@ -150,12 +156,13 @@ cp .env.example .env
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `VA_HEADLESS` | `false` | Run Chrome without a window |
+| `VA_BROWSER` | `auto` | `chrome`, `edge`, `brave`, `firefox`, or `auto` |
+| `VA_BROWSER_BINARY` | auto | Path to the browser, if discovery misses it |
+| `VA_DRIVER_PATH` | auto | Pin a driver instead of letting Selenium fetch one |
+| `VA_HEADLESS` | `false` | Run without a window |
 | `VA_PAGE_LOAD_TIMEOUT` | `30` | Seconds before a page load is abandoned |
 | `VA_ELEMENT_TIMEOUT` | `8` | Seconds spent looking for an element to click |
 | `VA_SCROLL_STEP` | `400` | Default scroll distance in pixels |
-| `VA_CHROME_BINARY` | auto | Path to Chrome, if it is not auto-detected |
-| `VA_CHROMEDRIVER_PATH` | auto | Path to a pinned ChromeDriver |
 | `VA_DISABLE_SANDBOX` | `false` | Add `--no-sandbox`; needed in containers only |
 | `VA_SPEECH_LANGUAGE` | `en-US` | Recognition language, e.g. `en-IN` |
 | `VA_LISTEN_TIMEOUT` | `8` | Seconds of silence before giving up on a turn |
@@ -176,7 +183,7 @@ surfacing later as a confusing browser error.
 ## How it works
 
 ```
-microphone ──► speech/listener ──► commands/parser ──► assistant ──► browser/controller ──► Chrome
+microphone ──► speech/listener ──► commands/parser ──► assistant ──► browser/controller ──► browser
                                         (pure)            │
                                                           ├──► services/weather
                                                           └──► speech/tts ──► speaker
@@ -186,7 +193,7 @@ microphone ──► speech/listener ──► commands/parser ──► assista
 |---|---|
 | `config` | Typed settings, validated at start-up |
 | `commands` | Utterance to intent. No I/O, so it is exhaustively testable |
-| `browser` | A small, safe action surface over Selenium |
+| `browser` | Browser discovery, plus a small safe action surface over Selenium |
 | `speech` | Microphone capture and speech output, behind protocols |
 | `services` | Outbound HTTP (weather) |
 | `assistant` | Orchestration, failure handling and shutdown |
@@ -209,9 +216,9 @@ injected, so the command loop can be tested end to end with fakes.
 pip install -r requirements-dev.txt
 pre-commit install          # optional
 
-pytest                      # 292 tests, no browser or microphone needed
+pytest                      # 329 tests, no browser or microphone needed
 pytest --cov --cov-report=term-missing
-pytest -m browser           # opt-in: drives a real Chrome against a local page
+pytest -m browser           # opt-in: drives a real browser against a local page
 ruff check .
 mypy
 ```
@@ -219,7 +226,7 @@ mypy
 The default suite fakes every external collaborator, so it runs offline in
 about two seconds. CI runs it on Python 3.10 through 3.13 on Linux and
 Windows. The `browser` marker selects a small set of integration tests that
-need Chrome and a matching ChromeDriver; they are deselected by default.
+launch a real browser; they are deselected by default.
 
 ## Troubleshooting
 
@@ -227,7 +234,9 @@ need Chrome and a matching ChromeDriver; they are deselected by default.
 |---|---|
 | `No usable microphone was found` | PyAudio is missing or no input device is present. Run `--doctor`; use `--text` meanwhile. |
 | Nothing is heard in a noisy room | Set `VA_ENERGY_THRESHOLD` to a fixed value such as `300`, or raise `VA_AMBIENT_CALIBRATION`. |
-| `Could not start Chrome` | Chrome is missing or an old ChromeDriver is cached. Update Chrome, or set `VA_CHROME_BINARY`. |
+| `No supported browser was found` | Install Chrome, Edge, Brave or Firefox, or point `VA_BROWSER_BINARY` at an executable. |
+| `<browser> is not installed` | `VA_BROWSER` names one you do not have. Run `--doctor` to see what is installed. |
+| Driver download fails | Set `VA_DRIVER_PATH` to a driver you downloaded yourself, matching your browser version. |
 | Responses are printed, not spoken | No speech engine. On Linux install `espeak-ng`; on Windows check SAPI5 voices. |
 | A command does the wrong thing | Run with `--text` and `--log-level DEBUG`: the log records the intent each utterance matched. |
 | Recognition struggles with your accent | Set `VA_SPEECH_LANGUAGE`, for example `en-IN` or `en-GB`. |
@@ -241,7 +250,6 @@ unless you enable file logging with `VA_LOG_FILE`.
 
 ## Limitations
 
-- Chrome only. Firefox and Edge are not supported.
 - Recognition needs an internet connection; there is no offline mode.
 - Clicking matches visible text, labels and titles. It cannot target an
   element that has no accessible text.
@@ -258,11 +266,11 @@ unless you enable file logging with `VA_LOG_FILE`.
 │   ├── diagnostics.py        # --doctor
 │   ├── logging_setup.py
 │   ├── urls.py               # URL safety and search templates
-│   ├── browser/              # Selenium wrapper, XPath escaping
+│   ├── browser/              # discovery, Selenium wrapper, XPath escaping
 │   ├── commands/             # intent parsing
 │   ├── services/             # weather
 │   └── speech/               # microphone and text-to-speech
-├── tests/                    # 292 offline tests
+├── tests/                    # 329 offline tests
 │   └── integration/          # opt-in live-browser tests (pytest -m browser)
 ├── examples/                 # unsupported legacy scripts
 └── .github/workflows/ci.yml

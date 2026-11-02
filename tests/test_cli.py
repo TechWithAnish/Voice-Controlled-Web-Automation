@@ -15,14 +15,26 @@ def test_version_exits_zero(capsys):
     with pytest.raises(SystemExit) as exc:
         cli.main(["--version"])
     assert exc.value.code == 0
-    assert "2.0.0" in capsys.readouterr().out
+    from voice_automation import __version__
+
+    assert __version__ in capsys.readouterr().out
 
 
 def test_flags_override_environment_settings():
     args = cli.build_parser().parse_args(
-        ["--headless", "--no-speech", "--search-engine", "duckduckgo", "--log-level", "DEBUG"]
+        [
+            "--headless",
+            "--no-speech",
+            "--browser",
+            "brave",
+            "--search-engine",
+            "duckduckgo",
+            "--log-level",
+            "DEBUG",
+        ]
     )
     settings = cli.apply_overrides(Settings(), args)
+    assert settings.browser == "brave"
     assert settings.headless is True
     assert settings.tts_enabled is False
     assert settings.search_engine == "duckduckgo"

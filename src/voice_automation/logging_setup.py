@@ -17,7 +17,7 @@ from pathlib import Path
 from .config import Settings
 
 #: Third-party loggers that are far too chatty at INFO.
-_NOISY = ("selenium", "urllib3", "WDM", "webdriver_manager", "comtypes")
+_NOISY = ("selenium", "urllib3", "comtypes")
 
 _CONSOLE_FORMAT = "%(levelname)-8s %(message)s"
 _FILE_FORMAT = "%(asctime)s %(levelname)-8s %(name)s: %(message)s"

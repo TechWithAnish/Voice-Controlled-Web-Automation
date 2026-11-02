@@ -4,6 +4,45 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-11-02
+
+### Added
+
+- **Any browser, not just Chrome.** Chrome, Edge, Brave and Firefox are all
+  supported. `VA_BROWSER` (or `--browser`) selects one; the default, `auto`,
+  uses the first one installed, so a machine with Edge and Brave but no
+  Chrome works with no configuration at all.
+- Browser discovery that checks the Windows registry `App Paths` keys first,
+  then the standard install directories, then `PATH`. The registry is
+  authoritative, so a browser installed somewhere unusual is still found --
+  the previous check looked only on `PATH` and in three fixed folders, and
+  reported "not found" for installations it could not see.
+- `VA_BROWSER_BINARY` to name a browser executable directly when discovery
+  cannot find it.
+- `--doctor` now lists every installed browser and says which one would be
+  used, instead of reporting only on Chrome.
+
+### Changed
+
+- Drivers are resolved by Selenium Manager, which is built into Selenium and
+  handles Chrome, Edge, Brave and Firefox alike. `VA_DRIVER_PATH` still pins
+  a specific driver.
+- `VA_CHROME_BINARY` renamed to `VA_BROWSER_BINARY`, and
+  `VA_CHROMEDRIVER_PATH` to `VA_DRIVER_PATH`.
+- Python 3.14 added to the supported versions and the CI matrix.
+
+### Removed
+
+- The `webdriver-manager` dependency, now redundant.
+
+### Fixed
+
+- `lxml` was listed in `requirements-dev.txt` but missing from the `dev`
+  extra, so the test that validates generated XPath silently skipped for
+  anyone installing with `pip install -e ".[dev]"`.
+
+[2.1.0]: https://github.com/TechWithAnish/Voice-Controlled-Web-Automation/releases/tag/v2.1.0
+
 ## [2.0.0] - 2026-11-02
 
 A production-readiness release. The behaviour a user sees is broadly the

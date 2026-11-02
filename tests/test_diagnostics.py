@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from voice_automation import diagnostics
 from voice_automation.config import Settings
 
@@ -22,19 +24,36 @@ def test_config_check_passes_on_a_clean_environment(monkeypatch):
     assert diagnostics.check_config().ok is True
 
 
-def test_chrome_check_reports_the_path(monkeypatch):
-    monkeypatch.setattr(diagnostics.shutil, "which", lambda name: "/usr/bin/chromium")
-    result = diagnostics.check_chrome()
+def test_browser_check_names_what_is_installed(monkeypatch):
+    from voice_automation.browser import browsers
+
+    monkeypatch.setattr(browsers, "_registry_path", lambda kind: None)
+    monkeypatch.setattr(
+        browsers,
+        "_known_paths",
+        lambda kind: [Path("/usr/bin/msedge")]
+        if kind is browsers.BrowserKind.EDGE
+        else [],
+    )
+    monkeypatch.setattr(browsers.shutil, "which", lambda name: None)
+    monkeypatch.setattr(Path, "is_file", lambda self: str(self) == "/usr/bin/msedge")
+
+    result = diagnostics.check_browsers(Settings())
     assert result.ok is True
-    assert result.detail == "/usr/bin/chromium"
+    assert "Microsoft Edge" in result.detail
 
 
-def test_chrome_check_suggests_a_remedy(monkeypatch):
-    monkeypatch.setattr(diagnostics.shutil, "which", lambda name: None)
-    monkeypatch.setattr(diagnostics.platform, "system", lambda: "Linux")
-    result = diagnostics.check_chrome()
+def test_browser_check_suggests_a_remedy_when_none_installed(monkeypatch):
+    from voice_automation.browser import browsers
+
+    monkeypatch.setattr(browsers, "_registry_path", lambda kind: None)
+    monkeypatch.setattr(browsers, "_known_paths", lambda kind: [])
+    monkeypatch.setattr(browsers.shutil, "which", lambda name: None)
+
+    result = diagnostics.check_browsers(Settings())
     assert result.ok is False
-    assert "VA_CHROME_BINARY" in (result.remedy or "")
+    assert "VA_BROWSER_BINARY" in (result.remedy or "")
+    assert "none" in result.detail
 
 
 def test_tts_check_honours_the_disable_flag():

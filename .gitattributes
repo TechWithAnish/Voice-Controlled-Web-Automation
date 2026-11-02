@@ -1,0 +1,23 @@
+# Normalise line endings so the repository is byte-identical on every
+# platform. Without this, Git's autocrlf on Windows rewrites every text file
+# on checkout, which is what produces the "LF will be replaced by CRLF"
+# warnings and can show whole files as modified when they are not.
+* text=auto eol=lf
+
+# Windows shells require CRLF in these.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Never touch binaries.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.whl  binary
+*.exe  binary
+
+# Keep generated noise out of diffs and language statistics.
+examples/** linguist-documentation
