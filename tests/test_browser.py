@@ -324,7 +324,8 @@ def test_firefox_gets_firefox_options():
 @pytest.mark.parametrize("kind", list(BrowserKind))
 def test_binary_location_is_always_set(kind):
     """Chromium forks such as Brave only launch when the binary is named."""
-    assert _options_for(kind).binary_location == "/opt/browser/exe"
+    # Compared through Path so the expectation matches on Windows too.
+    assert _options_for(kind).binary_location == str(Path("/opt/browser/exe"))
 
 
 def test_sandbox_is_not_disabled_by_default():

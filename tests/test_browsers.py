@@ -27,7 +27,12 @@ def no_browsers(monkeypatch):
 
 
 def install(monkeypatch, mapping):
-    """Pretend the browsers in ``mapping`` ({BrowserKind: path}) are installed."""
+    """Pretend the browsers in ``mapping`` ({BrowserKind: path}) are installed.
+
+    Membership is tested with Path objects rather than strings: Path equality
+    normalises separators, so the same fixture works on POSIX and Windows.
+    """
+    installed = {Path(location) for location in mapping.values()}
     monkeypatch.setattr(browsers, "_registry_path", lambda kind: None)
     monkeypatch.setattr(
         browsers,
@@ -35,7 +40,7 @@ def install(monkeypatch, mapping):
         lambda kind: [Path(mapping[kind])] if kind in mapping else [],
     )
     monkeypatch.setattr(browsers.shutil, "which", lambda name: None)
-    monkeypatch.setattr(Path, "is_file", lambda self: str(self) in mapping.values())
+    monkeypatch.setattr(Path, "is_file", lambda self: self in installed)
 
 
 # ---------------------------------------------------------------------------

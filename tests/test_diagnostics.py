@@ -36,7 +36,7 @@ def test_browser_check_names_what_is_installed(monkeypatch):
         else [],
     )
     monkeypatch.setattr(browsers.shutil, "which", lambda name: None)
-    monkeypatch.setattr(Path, "is_file", lambda self: str(self) == "/usr/bin/msedge")
+    monkeypatch.setattr(Path, "is_file", lambda self: self == Path("/usr/bin/msedge"))
 
     result = diagnostics.check_browsers(Settings())
     assert result.ok is True
